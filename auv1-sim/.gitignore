@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+runs/*.json
+runs/*.csv
+runs/*_viewer.html

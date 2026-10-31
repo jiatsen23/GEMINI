@@ -1,0 +1,49 @@
+{
+  "_comment": "The pool. Units: metres. Origin is the CENTRE of the water surface; x = north (along the long side), y = east, z = down. The vehicle starts at 'start_ned' pointing 'start_heading_deg' (0 = north).",
+  "length_m": 50.0,
+  "width_m": 25.0,
+  "depth_m": 3.0,
+  "water_density_kg_m3": 1000.0,
+  "wall_stiffness_N_m": 2000.0,
+  "wall_damping_N_s_m": 400.0,
+  "start_ned": [
+    -18.0,
+    -9.0,
+    0.0
+  ],
+  "start_heading_deg": 0.0,
+  "targets": [
+    {
+      "name": "gate_post_left",
+      "type": "gate_post",
+      "north_m": 12.0,
+      "east_m": 3.0,
+      "radius_m": 0.15,
+      "reflectivity": 0.95
+    },
+    {
+      "name": "gate_post_right",
+      "type": "gate_post",
+      "north_m": 12.0,
+      "east_m": 4.8,
+      "radius_m": 0.15,
+      "reflectivity": 0.95
+    },
+    {
+      "name": "marker_buoy_1",
+      "type": "buoy",
+      "north_m": -8.0,
+      "east_m": -5.0,
+      "radius_m": 0.25,
+      "reflectivity": 0.9
+    },
+    {
+      "name": "marker_buoy_2",
+      "type": "buoy",
+      "north_m": 18.0,
+      "east_m": -6.0,
+      "radius_m": 0.25,
+      "reflectivity": 0.9
+    }
+  ]
+}

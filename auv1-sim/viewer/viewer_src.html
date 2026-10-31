@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AUV1 pool simulator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --bg:#0b1220; --panel:#111a2e; --ink:#e6edf7; --muted:#8fa1c0; --accent:#4cc9f0; --warn:#ff6b6b; --ok:#7bd88f; --line:#223052; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--ink); font: 14px/1.4 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; overflow:hidden; }
+  #app { display:grid; grid-template-columns: 1fr 320px; grid-template-rows: 48px 1fr 56px; height:100%; }
+  header { grid-column: 1 / -1; display:flex; align-items:center; gap:14px; padding:0 14px; background:var(--panel); border-bottom:1px solid var(--line); }
+  header h1 { font-size:15px; font-weight:600; margin:0 12px 0 0; letter-spacing:.2px; }
+  header label { color:var(--muted); font-size:12px; display:flex; align-items:center; gap:6px; }
+  header input[type=file] { width:170px; font-size:11px; color:var(--muted); }
+  header select, header input[type=number] { background:#0e1628; color:var(--ink); border:1px solid var(--line); border-radius:4px; padding:3px 5px; font-size:12px; }
+  header input[type=number] { width:58px; }
+  #view { position:relative; min-width:0; min-height:0; }
+  canvas { display:block; }
+  #hint { position:absolute; left:12px; bottom:10px; color:var(--muted); font-size:11px; pointer-events:none; }
+  #banner { position:absolute; left:50%; top:40%; transform:translate(-50%,-50%); text-align:center; color:var(--muted); font-size:15px; max-width:520px; line-height:1.6; }
+  aside { background:var(--panel); border-left:1px solid var(--line); padding:14px; overflow:auto; }
+  aside h2 { font-size:11px; text-transform:uppercase; letter-spacing:.12em; color:var(--muted); margin:14px 0 6px; }
+  aside h2:first-child { margin-top:0; }
+  .row { display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px dashed var(--line); font-variant-numeric: tabular-nums; }
+  .row span:first-child { color:var(--muted); }
+  .big { font-size:26px; font-weight:600; letter-spacing:-.5px; }
+  .step { font-size:18px; font-weight:600; color:var(--accent); }
+  .flag { display:inline-block; padding:1px 7px; border-radius:10px; font-size:11px; background:#1d2a48; color:var(--muted); }
+  .flag.on { background:#173a2a; color:var(--ok); }
+  .flag.bad { background:#3d1c1c; color:var(--warn); }
+  .fins { display:grid; grid-template-columns: repeat(2, 1fr); gap:4px 12px; }
+  .bar { height:6px; background:#1a2540; border-radius:3px; position:relative; margin-top:3px; }
+  .bar i { position:absolute; top:0; bottom:0; background:var(--accent); border-radius:3px; }
+  footer { grid-column: 1 / -1; display:flex; align-items:center; gap:12px; padding:0 14px; background:var(--panel); border-top:1px solid var(--line); }
+  footer button { background:#1a2745; color:var(--ink); border:1px solid var(--line); border-radius:6px; padding:6px 14px; font-size:13px; cursor:pointer; }
+  footer button:hover { background:#24355e; }
+  footer input[type=range] { flex:1; }
+  footer .t { font-variant-numeric: tabular-nums; color:var(--muted); min-width:110px; text-align:right; }
+  .legend { font-size:11px; color:var(--muted); margin-top:8px; }
+  .legend b { display:inline-block; width:10px; height:10px; border-radius:2px; vertical-align:-1px; margin-right:4px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>AUV1 pool simulator</h1>
+    <label>run <input type="file" id="runFile" accept=".json"></label>
+    <label>CAD (STL) <input type="file" id="stlFile" accept=".stl"></label>
+    <label>model nose points
+      <select id="fwdAxis"><option value="+x">+X</option><option value="-x">-X</option><option value="+y">+Y</option><option value="-y">-Y</option><option value="+z">+Z</option><option value="-z">-Z</option></select>
+    </label>
+    <label>model up
+      <select id="upAxis"><option value="+z">+Z</option><option value="-z">-Z</option><option value="+y">+Y</option><option value="-y">-Y</option><option value="+x">+X</option><option value="-x">-X</option></select>
+    </label>
+    <label>scale <input type="number" id="stlScale" value="0.001" step="0.001" title="STL units to metres (0.001 = STL in mm)"></label>
+    <label><input type="checkbox" id="follow"> follow</label>
+    <label><input type="checkbox" id="showGhost" checked> show estimate</label>
+  </header>
+
+  <div id="view">
+    <div id="banner">Load a <b>runs/*.json</b> from run_mission.py<br>(and optionally the vehicle STL exported from SOLIDWORKS)</div>
+    <div id="hint">drag = orbit · wheel = zoom · right-drag = pan · space = play/pause</div>
+  </div>
+
+  <aside>
+    <h2>Mission</h2>
+    <div class="step" id="step">—</div>
+    <div class="row"><span>time</span><span id="t">0.0 s</span></div>
+    <h2>Depth</h2>
+    <div class="big" id="depth">—</div>
+    <div class="row"><span>setpoint</span><span id="depthSp">—</span></div>
+    <div class="row"><span>estimated</span><span id="depthEst">—</span></div>
+    <h2>Attitude</h2>
+    <div class="row"><span>heading</span><span id="hdg">—</span></div>
+    <div class="row"><span>heading setpoint</span><span id="hdgSp">—</span></div>
+    <div class="row"><span>pitch / target</span><span id="pitch">—</span></div>
+    <div class="row"><span>roll</span><span id="roll">—</span></div>
+    <div class="row"><span>speed (surge)</span><span id="speed">—</span></div>
+    <h2>Actuators</h2>
+    <div class="row"><span>stern thruster</span><span id="stern">—</span></div>
+    <div class="row"><span>bow tunnel</span><span id="bow">—</span></div>
+    <div class="fins" id="fins"></div>
+    <h2>Navigation</h2>
+    <div class="row"><span>GPS</span><span id="gps" class="flag">no fix</span></div>
+    <div class="row"><span>position error</span><span id="posErr">—</span></div>
+    <div class="row"><span>wall contact</span><span id="wall" class="flag">clear</span></div>
+    <div class="legend"><b style="background:#ffb347"></b>true track &nbsp; <b style="background:#4cc9f0"></b>dead-reckoned estimate</div>
+  </aside>
+
+  <footer>
+    <button id="play">▶ play</button>
+    <label style="color:var(--muted);font-size:12px">speed
+      <select id="rate"><option>0.5</option><option selected>1</option><option>2</option><option>4</option></select>
+    </label>
+    <input type="range" id="scrub" min="0" max="1000" value="0">
+    <span class="t" id="tlabel">0.0 / 0.0 s</span>
+  </footer>
+</div>
+
+<script>/*THREE_JS_HERE*/</script>
+<script id="embedded-run" type="application/json">/*RUN_JSON_HERE*/</script>
+<script id="embedded-stl" type="text/plain">/*STL_BASE64_HERE*/</script>
+
+<script>
+// ───────────────────────────── frames ─────────────────────────────
+// Simulator: NED world (x north, y east, z down); body x fwd, y right, z down.
+// three.js:  x east, y up, z south.   three = C * ned,   C = [[0,1,0],[0,0,-1],[-1,0,0]]
+const C = new THREE.Matrix3().set(0, 1, 0,   0, 0, -1,   -1, 0, 0);
+function nedToThree(p) { return new THREE.Vector3(p[1], -p[2], -p[0]); }
+function rotBodyToNed(roll, pitch, yaw) {
+  const cr = Math.cos(roll), sr = Math.sin(roll), cp = Math.cos(pitch), sp = Math.sin(pitch), cy = Math.cos(yaw), sy = Math.sin(yaw);
+  return new THREE.Matrix3().set(
+    cy*cp, cy*sp*sr - sy*cr, cy*sp*cr + sy*sr,
+    sy*cp, sy*sp*sr + cy*cr, sy*sp*cr - cy*sr,
+    -sp,   cp*sr,            cp*cr);
+}
+// body(NED-style) -> three:  M = C R C^T   (the model is built in the three-style body frame)
+function bodyMatrix(roll, pitch, yaw) {
+  const R = rotBodyToNed(roll, pitch, yaw);
+  const Ct = C.clone().transpose();
+  const M3 = C.clone().multiply(R).multiply(Ct);
+  const e = M3.elements; // column-major
+  const M4 = new THREE.Matrix4();
+  M4.set(e[0], e[3], e[6], 0,  e[1], e[4], e[7], 0,  e[2], e[5], e[8], 0,  0, 0, 0, 1);
+  return M4;
+}
+
+// ───────────────────────────── scene ─────────────────────────────
+const view = document.getElementById('view');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+view.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b1220);
+scene.fog = new THREE.Fog(0x0b1220, 40, 140);
+const camera = new THREE.PerspectiveCamera(50, 1, 0.05, 500);
+
+scene.add(new THREE.HemisphereLight(0xbfd8ff, 0x0a1a2a, 0.9));
+const sun = new THREE.DirectionalLight(0xffffff, 0.8); sun.position.set(10, 30, 10); scene.add(sun);
+
+// minimal orbit control (no external deps)
+const orbit = { target: new THREE.Vector3(0, -1, 0), dist: 30, yaw: 0.7, pitch: 0.45 };
+function applyCamera() {
+  const t = orbit.target;
+  camera.position.set(
+    t.x + orbit.dist * Math.cos(orbit.pitch) * Math.sin(orbit.yaw),
+    t.y + orbit.dist * Math.sin(orbit.pitch),
+    t.z + orbit.dist * Math.cos(orbit.pitch) * Math.cos(orbit.yaw));
+  camera.lookAt(t);
+}
+let drag = null;
+renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
+renderer.domElement.addEventListener('mousedown', e => { drag = { x: e.clientX, y: e.clientY, btn: e.button }; });
+window.addEventListener('mouseup', () => drag = null);
+window.addEventListener('mousemove', e => {
+  if (!drag) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY;
+  if (drag.btn === 0) { orbit.yaw -= dx * 0.006; orbit.pitch = Math.max(-1.4, Math.min(1.5, orbit.pitch + dy * 0.006)); }
+  else { const s = orbit.dist * 0.0015;
+    const right = new THREE.Vector3(Math.cos(orbit.yaw), 0, -Math.sin(orbit.yaw));
+    orbit.target.addScaledVector(right, -dx * s); orbit.target.y += dy * s; }
+});
+renderer.domElement.addEventListener('wheel', e => { orbit.dist = Math.max(2, Math.min(200, orbit.dist * (1 + e.deltaY * 0.001))); e.preventDefault(); }, { passive: false });
+
+function resize() {
+  const w = view.clientWidth, h = view.clientHeight;
+  renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+
+// ───────────────────────────── pool ─────────────────────────────
+let poolGroup = null;
+function buildPool(pool) {
+  if (poolGroup) scene.remove(poolGroup);
+  poolGroup = new THREE.Group();
+  const L = pool.length_m, W = pool.width_m, D = pool.depth_m;
+  // water volume
+  const water = new THREE.Mesh(new THREE.BoxGeometry(W, D, L),
+    new THREE.MeshPhysicalMaterial({ color: 0x1e6fb8, transparent: true, opacity: 0.22, roughness: 0.9, depthWrite: false, side: THREE.DoubleSide }));
+  water.position.set(0, -D / 2, 0); poolGroup.add(water);
+  // surface sheen
+  const surf = new THREE.Mesh(new THREE.PlaneGeometry(W, L),
+    new THREE.MeshBasicMaterial({ color: 0x7fd3ff, transparent: true, opacity: 0.12, side: THREE.DoubleSide }));
+  surf.rotation.x = -Math.PI / 2; surf.position.y = 0.001; poolGroup.add(surf);
+  // floor tiles + walls
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, L), new THREE.MeshStandardMaterial({ color: 0x9ec9dd, roughness: 0.8 }));
+  floor.rotation.x = -Math.PI / 2; floor.position.y = -D; poolGroup.add(floor);
+  const grid = new THREE.GridHelper(Math.max(L, W), Math.max(L, W) / 1, 0x5b8ea6, 0x5b8ea6);
+  grid.position.y = -D + 0.005; grid.material.opacity = 0.35; grid.material.transparent = true;
+  // clip the grid to the pool footprint by scaling a square grid
+  grid.scale.set(W / Math.max(L, W), 1, L / Math.max(L, W)); poolGroup.add(grid);
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(W, D, L)), new THREE.LineBasicMaterial({ color: 0xcfe6ff }));
+  edges.position.set(0, -D / 2, 0); poolGroup.add(edges);
+  // north arrow on the deck
+  const arrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), new THREE.Vector3(-W / 2 - 1.5, 0, 0), 3, 0xffb347, 0.8, 0.5);
+  poolGroup.add(arrow);
+  scene.add(poolGroup);
+  orbit.target.set(0, -D / 2, 0); orbit.dist = Math.max(L, W) * 0.9;
+}
+
+// ───────────────────────────── vehicle ─────────────────────────────
+// Built in the three-style body frame: nose -> -z, right -> +x, up -> +y
+let vehicle = new THREE.Group(), ghost = new THREE.Group(), finMeshes = {};
+scene.add(vehicle); scene.add(ghost);
+
+function proceduralTorpedo(v, ghostly) {
+  const g = new THREE.Group();
+  const L = v.hull.length_m, r = v.hull.diameter_m / 2;
+  const mat = ghostly
+    ? new THREE.MeshBasicMaterial({ color: 0x4cc9f0, wireframe: true, transparent: true, opacity: 0.35 })
+    : new THREE.MeshStandardMaterial({ color: 0xf2f4f8, roughness: 0.35, metalness: 0.1 });
+  const dark = ghostly ? mat : new THREE.MeshStandardMaterial({ color: 0x1b1f2a, roughness: 0.5 });
+  const nose = 0.22 * L, tail = 0.18 * L, mid = L - nose - tail;
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r, mid, 32), mat); body.rotation.x = Math.PI / 2; g.add(body);
+  const noseCone = new THREE.Mesh(new THREE.SphereGeometry(r, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), mat);
+  noseCone.scale.set(1, nose / r, 1); noseCone.rotation.x = -Math.PI / 2; noseCone.position.z = -mid / 2; g.add(noseCone);
+  const tailCone = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.35, r, tail, 32), mat); tailCone.rotation.x = -Math.PI / 2; tailCone.position.z = mid / 2 + tail / 2; g.add(tailCone);
+  const prop = new THREE.Mesh(new THREE.TorusGeometry(r * 0.5, r * 0.08, 8, 24), dark); prop.position.z = mid / 2 + tail + 0.02; g.add(prop);
+  // fins at x_body (NED body) -> three z = -x_body
+  const xf = v.fins.x_body_m, a = v.fins.radial_arm_m;
+  const span = 0.11, chord = 0.09;
+  finMeshes = {};
+  const layout = { top: [0, a, 0], bottom: [0, -a, 0], left: [-a, 0, 0], right: [a, 0, 0] };
+  for (const [name, p] of Object.entries(layout)) {
+    const pivot = new THREE.Group(); pivot.position.set(p[0], p[1], -xf); g.add(pivot);
+    const vertical = (name === 'top' || name === 'bottom');
+    const geo = new THREE.BoxGeometry(vertical ? 0.01 : span, vertical ? span : 0.01, chord);
+    const fin = new THREE.Mesh(geo, ghostly ? mat : new THREE.MeshStandardMaterial({ color: 0xffb347, roughness: 0.5 }));
+    fin.position.set(vertical ? 0 : (name === 'left' ? -span / 2 : span / 2), vertical ? (name === 'top' ? span / 2 : -span / 2) : 0, 0);
+    pivot.add(fin); if (!ghostly) finMeshes[name] = { pivot, vertical };
+  }
+  // bow tunnel (a ring through the hull)
+  const tun = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.35, r * 0.35, 2 * r + 0.01, 24, 1, true), dark);
+  tun.rotation.z = Math.PI / 2; tun.position.z = -v.bow_thruster.position_body_m[0]; g.add(tun);
+  return g;
+}
+
+function setVehicleModel(model) {
+  vehicle.clear(); vehicle.add(model);
+}
+let stlModel = null, stlGeom = null;
+function axisVec(s) { const sign = s[0] === '-' ? -1 : 1; const v = new THREE.Vector3(); v[s[1]] = sign; return v; }
+function applyStl() {
+  if (!stlGeom || !run) return;
+  const fwd = axisVec(document.getElementById('fwdAxis').value);
+  const up = axisVec(document.getElementById('upAxis').value);
+  if (Math.abs(fwd.dot(up)) > 0.5) { alert('nose and up axes must be different'); return; }
+  const right = new THREE.Vector3().crossVectors(fwd, up).normalize(); // starboard = forward x up
+  // rotation that sends model-fwd -> (0,0,-1), model-right -> (1,0,0), model-up -> (0,1,0)
+  const from = new THREE.Matrix4().makeBasis(fwd, right, up);   // model frame expressed in model coords (columns)
+  const to = new THREE.Matrix4().makeBasis(new THREE.Vector3(0, 0, -1), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0));
+  const rot = to.multiply(from.clone().invert());
+  const scale = parseFloat(document.getElementById('stlScale').value) || 0.001;
+  const geo = stlGeom.clone();
+  geo.computeBoundingBox(); const c = new THREE.Vector3(); geo.boundingBox.getCenter(c);
+  geo.translate(-c.x, -c.y, -c.z); geo.scale(scale, scale, scale); geo.applyMatrix4(rot); geo.computeVertexNormals();
+  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xf2f4f8, roughness: 0.4, metalness: 0.15 }));
+  stlModel = new THREE.Group(); stlModel.add(mesh);
+  finMeshes = {};
+  setVehicleModel(stlModel);
+}
+['fwdAxis', 'upAxis', 'stlScale'].forEach(id => document.getElementById(id).addEventListener('change', applyStl));
+
+// tiny STL parser (binary + ascii) - no loader dependency
+function parseSTL(buf) {
+  const bytes = new Uint8Array(buf);
+  const head = new TextDecoder().decode(bytes.slice(0, 5));
+  const dv = new DataView(buf);
+  const isAscii = head.toLowerCase() === 'solid' && !(buf.byteLength === 84 + 50 * dv.getUint32(80, true));
+  const pos = [];
+  if (!isAscii) {
+    const n = dv.getUint32(80, true);
+    for (let i = 0; i < n; i++) { const o = 84 + i * 50;
+      for (let k = 0; k < 3; k++) pos.push(dv.getFloat32(o + 12 + k * 12, true), dv.getFloat32(o + 16 + k * 12, true), dv.getFloat32(o + 20 + k * 12, true)); }
+  } else {
+    const txt = new TextDecoder().decode(bytes); const re = /vertex\s+([-\d.eE+]+)\s+([-\d.eE+]+)\s+([-\d.eE+]+)/g; let m;
+    while ((m = re.exec(txt))) pos.push(+m[1], +m[2], +m[3]);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); return g;
+}
+
+// ───────────────────────────── run data ─────────────────────────────
+let run = null, H = [], tEnd = 0, trailTrue, trailEst;
+function loadRun(json) {
+  run = json; H = run.history; tEnd = H[H.length - 1].truth.t;
+  document.getElementById('banner').style.display = 'none';
+  buildPool(run.pool);
+  if (stlGeom) applyStl(); else setVehicleModel(proceduralTorpedo(run.vehicle, false));
+  ghost.clear(); ghost.add(proceduralTorpedo(run.vehicle, true));
+  if (trailTrue) { scene.remove(trailTrue); scene.remove(trailEst); }
+  trailTrue = new THREE.Line(new THREE.BufferGeometry().setFromPoints(H.map(r => nedToThree(r.truth.pos))), new THREE.LineBasicMaterial({ color: 0xffb347 }));
+  trailEst = new THREE.Line(new THREE.BufferGeometry().setFromPoints(H.map(r => nedToThree([r.estimate.pos_ne[0], r.estimate.pos_ne[1], r.estimate.depth]))), new THREE.LineBasicMaterial({ color: 0x4cc9f0, transparent: true, opacity: 0.8 }));
+  trailTrue.geometry.setDrawRange(0, 0); trailEst.geometry.setDrawRange(0, 0);
+  scene.add(trailTrue); scene.add(trailEst);
+  // fins list in the panel
+  const finsDiv = document.getElementById('fins'); finsDiv.innerHTML = '';
+  for (const n of ['top', 'bottom', 'left', 'right']) finsDiv.innerHTML += `<div><div class="row"><span>${n}</span><span id="fin_${n}">—</span></div><div class="bar"><i id="bar_${n}"></i></div></div>`;
+  tNow = 0; playing = false; document.getElementById('play').textContent = '▶ play';
+  resize(); applyCamera(); show(0);
+}
+document.getElementById('runFile').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return; f.text().then(t => loadRun(JSON.parse(t)));
+});
+document.getElementById('stlFile').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  f.arrayBuffer().then(b => { stlGeom = parseSTL(b); if (run) applyStl(); });
+});
+
+// ───────────────────────────── playback ─────────────────────────────
+let tNow = 0, playing = false, lastFrame = null;
+const fmt = (x, d = 2) => (x === undefined || x === null || Number.isNaN(x)) ? '—' : x.toFixed(d);
+function lerp(a, b, f) { return a + (b - a) * f; }
+function lerpAng(a, b, f) { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return a + d * f; }
+
+function show(t) {
+  if (!run) return;
+  t = Math.max(0, Math.min(tEnd, t));
+  // find record index
+  let i = Math.min(H.length - 2, Math.max(0, Math.floor(t / (tEnd / (H.length - 1)))));
+  while (i > 0 && H[i].truth.t > t) i--;
+  while (i < H.length - 2 && H[i + 1].truth.t < t) i++;
+  const a = H[i], b = H[i + 1], f = Math.max(0, Math.min(1, (t - a.truth.t) / Math.max(1e-6, b.truth.t - a.truth.t)));
+  const pos = [0, 1, 2].map(k => lerp(a.truth.pos[k], b.truth.pos[k], f));
+  const att = [lerpAng(a.truth.att[0], b.truth.att[0], f), lerp(a.truth.att[1], b.truth.att[1], f), lerpAng(a.truth.att[2], b.truth.att[2], f)];
+  vehicle.position.copy(nedToThree(pos));
+  vehicle.setRotationFromMatrix(bodyMatrix(att[0], att[1], att[2]));
+  for (const [n, fm] of Object.entries(finMeshes)) {
+    const d = THREE.MathUtils.degToRad(lerp(a.truth.fins_deg[n], b.truth.fins_deg[n], f));
+    if (fm.vertical) fm.pivot.rotation.y = -d; else fm.pivot.rotation.x = d;
+  }
+  const est = a.estimate;
+  ghost.visible = document.getElementById('showGhost').checked;
+  ghost.position.copy(nedToThree([est.pos_ne[0], est.pos_ne[1], est.depth]));
+  ghost.setRotationFromMatrix(bodyMatrix(est.att[0], est.att[1], est.att[2]));
+  trailTrue.geometry.setDrawRange(0, i + 1); trailEst.geometry.setDrawRange(0, i + 1);
+  if (document.getElementById('follow').checked) orbit.target.copy(vehicle.position);
+
+  // panel
+  const tr = a.truth, deg = THREE.MathUtils.radToDeg;
+  document.getElementById('step').textContent = a.step || '—';
+  document.getElementById('t').textContent = fmt(t, 1) + ' s';
+  document.getElementById('depth').textContent = fmt(pos[2]) + ' m';
+  document.getElementById('depthSp').textContent = fmt(a.depth_sp) + ' m';
+  document.getElementById('depthEst').textContent = fmt(est.depth) + ' m';
+  document.getElementById('hdg').textContent = fmt((deg(att[2]) + 360) % 360, 0) + '°';
+  document.getElementById('hdgSp').textContent = fmt(a.heading_sp, 0) + '°';
+  document.getElementById('pitch').textContent = fmt(deg(att[1]), 1) + '° / ' + fmt(a.pitch_sp, 1) + '°';
+  document.getElementById('roll').textContent = fmt(deg(att[0]), 1) + '°';
+  document.getElementById('speed').textContent = fmt(tr.v[0]) + ' m/s';
+  document.getElementById('stern').textContent = fmt(tr.stern_N, 1) + ' N';
+  document.getElementById('bow').textContent = fmt(tr.bow_N, 1) + ' N';
+  for (const n of ['top', 'bottom', 'left', 'right']) {
+    const d = tr.fins_deg[n]; const el = document.getElementById('fin_' + n); if (!el) continue;
+    el.textContent = fmt(d, 1) + '°';
+    const bar = document.getElementById('bar_' + n); const pct = d / run.vehicle.fins.max_deflection_deg * 50;
+    bar.style.left = (50 + Math.min(0, pct)) + '%'; bar.style.width = Math.abs(pct) + '%';
+  }
+  const gps = document.getElementById('gps'); const fix = a.sensors.gps_ne_m !== null;
+  gps.textContent = fix ? 'fix (surface)' : 'no fix (submerged)'; gps.className = 'flag' + (fix ? ' on' : '');
+  const err = Math.hypot(tr.pos[0] - est.pos_ne[0], tr.pos[1] - est.pos_ne[1]);
+  document.getElementById('posErr').textContent = fmt(err, 1) + ' m';
+  const wall = document.getElementById('wall'); wall.textContent = tr.wall ? 'CONTACT' : 'clear'; wall.className = 'flag' + (tr.wall ? ' bad' : '');
+  document.getElementById('scrub').value = Math.round(t / tEnd * 1000);
+  document.getElementById('tlabel').textContent = fmt(t, 1) + ' / ' + fmt(tEnd, 1) + ' s';
+}
+
+function frame(ts) {
+  requestAnimationFrame(frame);
+  if (lastFrame !== null && playing && run) {
+    tNow += (ts - lastFrame) / 1000 * parseFloat(document.getElementById('rate').value);
+    if (tNow >= tEnd) { tNow = tEnd; playing = false; document.getElementById('play').textContent = '▶ play'; }
+    show(tNow);
+  }
+  lastFrame = ts;
+  applyCamera(); renderer.render(scene, camera);
+}
+function togglePlay() { if (!run) return; if (tNow >= tEnd) tNow = 0; playing = !playing; document.getElementById('play').textContent = playing ? '❚❚ pause' : '▶ play'; }
+document.getElementById('play').addEventListener('click', togglePlay);
+window.addEventListener('keydown', e => { if (e.code === 'Space' && e.target.tagName !== 'INPUT') { e.preventDefault(); togglePlay(); } });
+document.getElementById('scrub').addEventListener('input', e => { if (!run) return; tNow = e.target.value / 1000 * tEnd; show(tNow); });
+document.getElementById('showGhost').addEventListener('change', () => show(tNow));
+
+// embedded data (from bake_viewer.py) - falls back to the file pickers
+(function boot() {
+  resize(); applyCamera(); requestAnimationFrame(frame);
+  const emb = document.getElementById('embedded-run').textContent.trim();
+  const stl = document.getElementById('embedded-stl').textContent.trim();
+  if (stl && !stl.startsWith('/*')) { const bin = atob(stl); const buf = new ArrayBuffer(bin.length); const u8 = new Uint8Array(buf); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i); stlGeom = parseSTL(buf); }
+  if (emb && !emb.startsWith('/*')) loadRun(JSON.parse(emb));
+})();
+</script>
+</body>
+</html>

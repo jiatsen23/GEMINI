@@ -1,0 +1,105 @@
+{
+  "_comment": "AUV1P torpedo. Body frame: x forward, y starboard (right), z down. Every number here is a first estimate from the CAD (1480 mm hex rods, 180 mm chambers) and Blue Robotics datasheets - replace with measured values as they arrive.",
+  "hull": {
+    "length_m": 1.5,
+    "diameter_m": 0.18,
+    "mass_kg": 38.0,
+    "displaced_volume_m3": 0.03805,
+    "_displaced_volume_note": "pi*(0.09^2)*1.5 = 0.0382 m3 -> 374.6 N of buoyancy at 1000 kg/m3, vs 372.8 N weight: floats very slowly when idle. Trim this to match the float test.",
+    "bg_m": 0.02,
+    "_bg_note": "metacentric height: centre of buoyancy this far ABOVE centre of gravity. Bigger = stiffer in roll/pitch."
+  },
+  "added_mass": {
+    "_comment": "fraction of rigid mass / inertia dragged along with the hull",
+    "surge": 0.05,
+    "sway": 1.0,
+    "heave": 1.0,
+    "roll": 0.1,
+    "pitch": 0.6,
+    "yaw": 0.6
+  },
+  "drag": {
+    "_comment": "quadratic drag  F = -0.5*rho*Cd*A*|v|*v  per body axis; rotational: M = -(lin*w + quad*w*|w|)",
+    "cd_surge": 0.5,
+    "cd_crossflow": 1.0,
+    "roll_lin": 0.5,
+    "roll_quad": 1.0,
+    "pitch_lin": 2.0,
+    "pitch_quad": 5.0,
+    "yaw_lin": 2.0,
+    "yaw_quad": 5.0
+  },
+  "stern_thruster": {
+    "_comment": "T200 on ~4S. Output MAIN 8 (servo 8). effort e in -1..1 -> thrust = max*e*|e| with first-order lag",
+    "servo_output": 8,
+    "position_body_m": [
+      -0.75,
+      0.0,
+      0.0
+    ],
+    "max_fwd_N": 40.0,
+    "max_rev_N": 30.0,
+    "time_constant_s": 0.15
+  },
+  "bow_thruster": {
+    "_comment": "T200 in a tunnel near the nose, pushing sideways (+y for +effort). Output AUX 1 (servo 9).",
+    "servo_output": 9,
+    "position_body_m": [
+      0.55,
+      0.0,
+      0.0
+    ],
+    "max_N": 25.0,
+    "time_constant_s": 0.15
+  },
+  "fins": {
+    "_comment": "Four fins in '+' at the stern. top/bottom are vertical surfaces (force along body y), left/right are horizontal (force along body z). force_sign = direction of force for a POSITIVE deflection, i.e. the physical meaning the bench SIGNS table in fin_mixer.py has to match.",
+    "x_body_m": -0.65,
+    "radial_arm_m": 0.15,
+    "area_each_m2": 0.0096,
+    "cl_alpha_per_rad": 3.5,
+    "max_deflection_deg": 25.0,
+    "servo_rate_deg_s": 300.0,
+    "outputs": {
+      "top": 4,
+      "bottom": 5,
+      "left": 6,
+      "right": 7
+    },
+    "force_sign": {
+      "top": -1,
+      "bottom": 1,
+      "left": -1,
+      "right": 1
+    },
+    "_cl_note": "isolated fin of aspect ratio ~1.5 gives ~2.7/rad; the hull acts as an end-plate so the effective aspect ratio roughly doubles -> ~3.5/rad. Measure at the pool."
+  },
+  "sensors": {
+    "telemetry_hz": 10.0,
+    "depth_noise_m": 0.01,
+    "depth_bias_m": 0.02,
+    "gyro_noise_rad_s": 0.005,
+    "gyro_bias_rad_s": [
+      0.002,
+      -0.001,
+      0.003
+    ],
+    "accel_noise_m_s2": 0.05,
+    "mag_heading_noise_deg": 1.5,
+    "mag_heading_bias_deg": 2.0,
+    "gps_noise_m": 1.5,
+    "gps_max_depth_m": 0.1,
+    "gps_hz": 1.0,
+    "dvl_enabled": false,
+    "dvl_position_body_m": [
+      0.2,
+      0.0,
+      0.09
+    ],
+    "dvl_vel_noise_m_s": 0.005,
+    "dvl_scale_bias": 0.003,
+    "dvl_alt_noise_m": 0.01,
+    "dvl_min_alt_m": 0.05,
+    "dvl_max_tilt_deg": 35.0
+  }
+}

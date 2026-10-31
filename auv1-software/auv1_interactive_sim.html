@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en" class="dark scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ICAUV AUV1 — AI-Powered Subsea Autonomy Pitch &amp; Live Simulator</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    body {
+      background-color: var(--background, #060b14);
+      color: var(--foreground, #f1f5f9);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .code-line { padding: 1px 8px; border-left: 3px solid transparent; }
+    .code-line.active-line { background: rgba(34, 211, 238, 0.16); border-left-color: #22d3ee; color: #fff; font-weight: 700; }
+    .code-line.changed-line { background: rgba(16, 185, 129, 0.18); border-left-color: #10b981; }
+  </style>
+</head>
+<body class="bg-[var(--background)] text-[var(--foreground)] select-none">
+
+  <!-- STICKY TOP NAVBAR LINKING 3D HERO -> SLIDES -> LIVE PROGRAM -->
+  <nav class="sticky top-0 z-50 backdrop-blur-md bg-slate-950/85 border-b border-slate-800 px-4 py-3">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5">
+        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+          IMPERIAL COLLEGE AUV1
+        </span>
+        <span class="text-sm font-bold tracking-tight">Subsea AI &amp; Acoustic Autonomy</span>
+      </div>
+      <div class="flex items-center gap-2 text-xs font-semibold">
+        <a href="#hero3d" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-cyan-500/20 hover:text-cyan-300 border border-slate-800 transition">
+          1. 3D AUV1 Model
+        </a>
+        <a href="#slides" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-cyan-500/20 hover:text-cyan-300 border border-slate-800 transition">
+          2. Pitch Slides
+        </a>
+        <a href="#live-sim" class="px-3 py-1.5 rounded-lg bg-cyan-400 text-slate-950 hover:bg-cyan-300 transition">
+          3. Live Autonomy Program ↓
+        </a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ===================================================================== -->
+  <!-- SECTION 1: HERO — SPINNING 3D AUV1 MODEL + PREDICTED INTERNALS        -->
+  <!-- ===================================================================== -->
+  <section id="hero3d" class="min-h-[90vh] flex flex-col justify-between max-w-7xl mx-auto px-4 py-8">
+    <div class="text-center max-w-3xl mx-auto space-y-3">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+        <span>99% of Global Data &amp; Energy Runs Underwater — We Protect It With AI</span>
+      </div>
+      <h1 class="text-3xl md:text-5xl font-extrabold tracking-tight">
+        Sensing the Deep <span class="text-cyan-400">10× Cheaper</span> Through Onboard AI
+      </h1>
+      <p class="text-sm md:text-base text-slate-400">
+        Drag to rotate our 1.5 m AUV1 torpedo. We fuse a compact DVL and 360° Sonar with an onboard AI Teacher–Student neural network to achieve machine-vision-grade mapping in zero-visibility water.
+      </p>
+    </div>
+
+    <!-- 3D Spinning Canvas + Controls -->
+    <div class="relative my-4 bg-slate-950 border border-slate-800 rounded-2xl p-4 shadow-2xl">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <div class="flex items-center gap-2 text-xs mono text-cyan-300">
+          <span>3D DIGITAL TWIN (DRAG TO ROTATE)</span>
+          <span class="text-slate-500">|</span>
+          <span id="predLabel" class="text-emerald-400">★ Predicted Internal Payload Active</span>
+        </div>
+        <div class="flex items-center gap-2 text-xs">
+          <button id="btnToggleSpin" class="px-3 py-1 rounded-lg bg-slate-900 border border-slate-700 hover:border-cyan-400 cursor-pointer">
+            Auto-Spin: ON
+          </button>
+          <button id="btnToggleXray" class="px-3 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 cursor-pointer">
+            Show Predicted Internals: ON
+          </button>
+        </div>
+      </div>
+
+      <canvas id="auv3dCanvas" width="1100" height="390" class="w-full h-auto block cursor-grab active:cursor-grabbing rounded-xl bg-[#040914]"></canvas>
+
+      <!-- Predicted Component Legend -->
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-2 mt-3 text-xs">
+        <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-2.5">
+          <div class="font-bold text-cyan-300">1. Nose &amp; Bow Tunnel (`AUX 1`)</div>
+          <div class="text-[11px] text-slate-400">Predicted Ping360 Sonar + low-speed transverse tunnel thruster</div>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-2.5">
+          <div class="font-bold text-emerald-300">2. Fwd Acrylic Bay (Predicted)</div>
+          <div class="text-[11px] text-slate-400">Raspberry Pi 5 (Onboard LLM + Student MLP) &amp; Pixhawk 6C</div>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-2.5">
+          <div class="font-bold text-amber-300">3. Keel Acoustic Window</div>
+          <div class="text-[11px] text-slate-400">Predicted Water Linked DVL-A50 4-beam Doppler transducer</div>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-2.5">
+          <div class="font-bold text-purple-300">4. Aft Acrylic Bay (Predicted)</div>
+          <div class="text-[11px] text-slate-400">4S Li-Ion Battery Pack, ESCs &amp; Bar30 Depth Sensor</div>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-2.5">
+          <div class="font-bold text-lime-400">5. Green Cruciform Fins &amp; Stern</div>
+          <div class="text-[11px] text-slate-400">4 NACA servos (`MAIN 4–7`) + Ducted Stern Thruster (`MAIN 8`)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="text-center">
+      <a href="#slides" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold bg-slate-900 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/20 transition">
+        ↓ Scroll to Pitch Slides &amp; Live Autonomy Simulator
+      </a>
+    </div>
+  </section>
+
+  <!-- ===================================================================== -->
+  <!-- SECTION 2: INTERACTIVE HACKATHON PITCH SLIDES                         -->
+  <!-- ===================================================================== -->
+  <section id="slides" class="max-w-7xl mx-auto px-4 py-12 border-t border-slate-800/80 space-y-6">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <span class="text-xs font-bold uppercase tracking-wider text-cyan-400">Hackathon Presentation Deck</span>
+        <h2 class="text-2xl font-extrabold">Why Subsea AI + Robotics Matters Now</h2>
+      </div>
+      <div class="flex items-center gap-2 text-xs">
+        <button data-slide="0" class="slide-tab px-3 py-1.5 rounded-lg font-bold bg-cyan-400 text-slate-950 cursor-pointer">Slide 1: The Problem</button>
+        <button data-slide="1" class="slide-tab px-3 py-1.5 rounded-lg font-bold bg-slate-900 text-slate-300 border border-slate-800 cursor-pointer">Slide 2: Why AI Sensing?</button>
+        <button data-slide="2" class="slide-tab px-3 py-1.5 rounded-lg font-bold bg-slate-900 text-slate-300 border border-slate-800 cursor-pointer">Slide 3: Our Stack</button>
+      </div>
+    </div>
+
+    <!-- Slide Cards -->
+    <div id="slide0" class="slide-card bg-slate-950 border border-slate-800 rounded-2xl p-6 md:p-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="md:col-span-2 space-y-3">
+        <span class="px-2.5 py-1 rounded text-xs font-bold bg-rose-500/20 text-rose-300">SLIDE 1 — THE CRITICAL INFRASTRUCTURE PROBLEM</span>
+        <h3 class="text-2xl font-bold">The Modern World Runs Underwater — And It Is Vulnerable</h3>
+        <p class="text-sm text-slate-300 leading-relaxed">
+          Over <strong>99% of intercontinental internet traffic</strong> ($10 trillion in daily financial transactions) travels through 1.4 million km of seabed fiber-optic cables alongside offshore oil, gas, and wind power pipelines. Yet inspecting this infrastructure currently requires ship-tethered ROVs costing <strong>$30,000–$100,000 per day</strong>.
+        </p>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-center space-y-2 mono text-xs">
+        <div class="text-slate-400">GLOBAL SUBSEA EXPOSURE</div>
+        <div class="text-2xl font-extrabold text-cyan-400">1.4M km</div>
+        <div class="text-slate-300">Undersea Fiber Cables + Energy Pipelines</div>
+        <div class="pt-2 text-2xl font-extrabold text-rose-400">0 m</div>
+        <div class="text-slate-300">GPS &amp; Wi-Fi Penetration Underwater</div>
+      </div>
+    </div>
+
+    <div id="slide1" class="slide-card hidden bg-slate-950 border border-slate-800 rounded-2xl p-6 md:p-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="md:col-span-2 space-y-3">
+        <span class="px-2.5 py-1 rounded text-xs font-bold bg-amber-500/20 text-amber-300">SLIDE 2 — THE COST &amp; PHYSICS BOTTLENECK</span>
+        <h3 class="text-2xl font-bold">Cameras Go Blind in Murky Water. Military Sonars Cost $80,000.</h3>
+        <p class="text-sm text-slate-300 leading-relaxed">
+          Optical machine vision fails in turbid coastal water and dark deep-sea environments. Traditional offshore AUVs solve this with $80k Fiber-Optic Gyros and multi-beam phased arrays. <strong>Our thesis:</strong> Use compact, commercial acoustic sensors (Water Linked DVL-A50 + Ping360 Sonar) and let <strong>Onboard AI Sensor Fusion</strong> reconstruct a semantic map just as reliable as computer vision at <strong>1/10th the hardware cost</strong>.
+        </p>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-center space-y-2 mono text-xs">
+        <div class="text-emerald-400 font-bold">HARDWARE COST REDUCTION</div>
+        <div class="text-slate-300">Legacy Work-Class INS/Sonar: <span class="text-rose-400">$85,000+</span></div>
+        <div class="text-slate-300">AUV1 Acoustic + AI Stack: <span class="text-emerald-400">~$4,500</span></div>
+        <div class="text-cyan-300 pt-1">→ 94% cheaper via AI SLAM &amp; Distillation</div>
+      </div>
+    </div>
+
+    <div id="slide2" class="slide-card hidden bg-slate-950 border border-slate-800 rounded-2xl p-6 md:p-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="md:col-span-2 space-y-3">
+        <span class="px-2.5 py-1 rounded text-xs font-bold bg-purple-500/20 text-purple-300">SLIDE 3 — 3-TIER GEMINI + GEMMA ONBOARD DISTILLATION</span>
+        <h3 class="text-2xl font-bold">Gemini Pro/Flash Planning + Gemma Teacher → 20 Hz Student MLP</h3>
+        <p class="text-sm text-slate-300 leading-relaxed">
+          There is no internet underwater, and LLMs are too slow (500 ms+) to sit inside a 20 Hz PID loop. AUV1 solves this with a <strong>3-Tier Gemini Hierarchy</strong>:
+          <strong>(1) Gemini Pro / Flash</strong> (`nl_planner.py`) compiles natural language at the surface into Boustrophedon survey or gate trajectories;
+          <strong>(2) Quantized Gemma 2B / Gemini Nano Teacher</strong> (`llm_distill.py`) runs offline on the Raspberry Pi 5 to interpret 360° Sonar SLAM scenes; and
+          <strong>(3) Online DAgger Distillation</strong> trains a fast <code>10→16→3</code> Student MLP executing in &lt;0.1 ms inside the 20 Hz flight controller.
+        </p>
+      </div>
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col justify-center space-y-1.5 mono text-xs">
+        <div class="text-purple-300 font-bold">3-TIER GEMINI HIERARCHY</div>
+        <div>• Tier 1 (Surface): Gemini Pro / Flash</div>
+        <div>• Tier 2 (Pi 5 Edge): Gemma 2B Teacher</div>
+        <div>• Tier 3 (20 Hz Loop): `10→16→3` Student MLP</div>
+        <div>• Safety: ±25° Pitch &amp; 0.35m Floor Guard</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================================== -->
+  <!-- SECTION 3: SCROLL REVEAL — LIVE INTERACTIVE PROGRAM & CODE COMPILER   -->
+  <!-- ===================================================================== -->
+  <section id="live-sim" class="max-w-7xl mx-auto px-4 py-10 border-t border-slate-800/80 space-y-4">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div>
+        <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">Live Interactive Demo</span>
+        <h2 class="text-2xl font-extrabold">AUV1 Live Autonomy Simulator &amp; Real-Time Python Compiler</h2>
+      </div>
+      <span id="compileStatusBadge" class="text-xs mono px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-semibold">
+        ● Build #1 Active — Running Compiled Python Controller
+      </span>
+    </div>
+
+    <!-- Command Compiler Bar -->
+    <div id="compilerCard" class="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-3">
+      <div class="flex flex-col sm:flex-row gap-2.5">
+        <div class="relative flex-1">
+          <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-cyan-400 mono">PROMPT &gt;</span>
+          <input
+            id="nlInput"
+            type="text"
+            value="I want to map out the pool at 1.5m depth"
+            class="w-full pl-24 pr-4 py-2.5 rounded-xl text-sm bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-400"
+          />
+        </div>
+        <button id="btnCompile" class="px-5 py-2.5 rounded-xl text-sm font-bold bg-cyan-400 text-slate-950 hover:bg-cyan-300 transition cursor-pointer shrink-0">
+          ⚡ Compile Code &amp; Run on AUV1
+        </button>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="text-slate-400">Presets:</span>
+          <button data-cmd="I want to map out the pool at 1.5m depth" class="preset-btn px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-cyan-500/20 hover:text-cyan-300 border border-slate-800 cursor-pointer">
+            🗺️ Map out the pool
+          </button>
+          <button data-cmd="Find and pass through the competition gate at 1.5m" class="preset-btn px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-cyan-500/20 hover:text-cyan-300 border border-slate-800 cursor-pointer">
+            ⛩️ Pass through gate
+          </button>
+          <button data-cmd="Inspect the perimeter walls at 1.6m depth" class="preset-btn px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-cyan-500/20 hover:text-cyan-300 border border-slate-800 cursor-pointer">
+            🧱 Inspect walls
+          </button>
+          <button data-cmd="Orbit the red marker buoy at 1.8m depth" class="preset-btn px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-cyan-500/20 hover:text-cyan-300 border border-slate-800 cursor-pointer">
+            🎯 Orbit buoy
+          </button>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btnSpeed" class="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 cursor-pointer">Speed: 1×</button>
+          <button id="btnObstacle" class="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 cursor-pointer">+ Drop Obstacle</button>
+          <button id="btnReset" class="px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/40 cursor-pointer">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main 2-Column Simulator + Live Python Code Inspector -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <!-- Left: Pool & Sonar Vision -->
+      <div class="lg:col-span-7 bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-3">
+        <div class="flex items-center justify-between text-xs">
+          <span class="font-bold">50m × 25m Tank — DVL + 360° Sonar SLAM (<span id="missionTag" class="text-cyan-400 mono">LAWNMOWER_MAP</span>)</span>
+          <div class="flex gap-3">
+            <label class="flex items-center gap-1 cursor-pointer"><input id="chkDvl" type="checkbox" checked class="accent-cyan-400"/> DVL Lock</label>
+            <label class="flex items-center gap-1 cursor-pointer"><input id="chkSlam" type="checkbox" checked class="accent-cyan-400"/> Wall SLAM</label>
+            <label class="flex items-center gap-1 cursor-pointer"><input id="chkShowDrift" type="checkbox" checked class="accent-rose-400"/> Show Drift</label>
+          </div>
+        </div>
+
+        <div class="relative rounded-xl overflow-hidden border border-slate-800 bg-[#030914]">
+          <canvas id="tankCanvas" width="740" height="390" class="w-full h-auto block"></canvas>
+          <div id="compileToast" class="hidden absolute top-3 left-1/2 -translate-x-1/2 bg-emerald-400 text-slate-950 font-bold text-xs px-4 py-1.5 rounded-full shadow-lg">
+            ✓ Compiled New Python Mission &amp; Reloaded AUV1 Controller!
+          </div>
+          <div class="absolute bottom-2 left-2 right-2 flex flex-wrap justify-between bg-slate-950/90 border border-slate-800 rounded-lg px-3 py-1.5 text-xs mono">
+            <span id="hudPose" class="text-cyan-300">Pose: N +0.0m, E +0.0m</span>
+            <span id="hudTarget" class="text-amber-300">WP 1/8</span>
+            <span id="hudVision" class="text-emerald-400">Mapped: 0.0%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Live Python Code & Online DAgger AI Distillation -->
+      <div class="lg:col-span-5 bg-slate-950 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-cyan-400 uppercase mono">🐍 Live Compiled Python (`mission_ai_sonar.py`)</span>
+          <span id="activeExecBadge" class="text-[11px] mono px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-300">Executing WP #1</span>
+        </div>
+
+        <div id="codeContainer" class="bg-[#040914] border border-slate-800 rounded-xl p-2.5 mono text-[11px] leading-relaxed overflow-y-auto h-[290px] text-slate-300"></div>
+
+        <!-- Online Teacher -> Student Neural Distillation Strip -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-3 mono text-xs space-y-1.5">
+          <div class="flex justify-between">
+            <span class="text-purple-300 font-bold">Onboard AI Teacher → Student MLP (DAgger)</span>
+            <span id="aiStats" class="text-emerald-400">Steps: 0 | MSE: 0.0420</span>
+          </div>
+          <div id="execTraceText" class="text-[11px] text-slate-300 truncate">
+            ctl.update(depth_sp=1.5m, hdg_sp=090°, u_sp=0.85m/s)
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    // =========================================================================
+    // PART A: SIMPLE, FAST 3D AUV1 TORPEDO RENDERER (MATCHES UPLOADED CAD)
+    // =========================================================================
+    const c3d = document.getElementById("auv3dCanvas");
+    const ctx3d = c3d.getContext("2d");
+    let rotY = -0.42, rotX = 0.22, autoSpin = true, showInternals = true;
+    let dragging = false, lastX = 0, lastY = 0, propAngle = 0;
+
+    c3d.addEventListener("mousedown", e => { dragging = true; lastX = e.clientX; lastY = e.clientY; });
+    window.addEventListener("mouseup", () => dragging = false);
+    window.addEventListener("mousemove", e => {
+      if (!dragging) return;
+      rotY += (e.clientX - lastX) * 0.008;
+      rotX = Math.max(-0.7, Math.min(0.7, rotX + (e.clientY - lastY) * 0.006));
+      lastX = e.clientX; lastY = e.clientY;
+    });
+
+    document.getElementById("btnToggleSpin").onclick = e => {
+      autoSpin = !autoSpin;
+      e.target.textContent = `Auto-Spin: ${autoSpin ? "ON" : "OFF"}`;
+    };
+    document.getElementById("btnToggleXray").onclick = e => {
+      showInternals = !showInternals;
+      e.target.textContent = `Show Predicted Internals: ${showInternals ? "ON" : "OFF"}`;
+    };
+
+    // Slide switcher
+    document.querySelectorAll(".slide-tab").forEach(btn => {
+      btn.onclick = () => {
+        const idx = btn.dataset.slide;
+        document.querySelectorAll(".slide-card").forEach((el, i) => el.classList.toggle("hidden", String(i) !== idx));
+        document.querySelectorAll(".slide-tab").forEach((b, i) => {
+          b.className = String(i) === idx
+            ? "slide-tab px-3 py-1.5 rounded-lg font-bold bg-cyan-400 text-slate-950 cursor-pointer"
+            : "slide-tab px-3 py-1.5 rounded-lg font-bold bg-slate-900 text-slate-300 border border-slate-800 cursor-pointer";
+        });
+      };
+    });
+
+    function proj3D(x, y, z) {
+      // Rotate around Y then X
+      const cy = Math.cos(rotY), sy = Math.sin(rotY);
+      const x1 = x * cy - z * sy;
+      const z1 = x * sy + z * cy;
+      const cx = Math.cos(rotX), sx = Math.sin(rotX);
+      const y2 = y * cx - z1 * sx;
+      const z2 = y * sx + z1 * cx;
+      const fov = 900 / (900 + z2);
+      return { x: c3d.width / 2 + x1 * fov, y: c3d.height / 2 + y2 * fov, z: z2, s: fov };
+    }
+
+    function drawCylinderRing(xPos, radius, color, alpha = 1.0, lw = 1.5) {
+      ctx3d.strokeStyle = color;
+      ctx3d.globalAlpha = alpha;
+      ctx3d.lineWidth = lw;
+      ctx3d.beginPath();
+      for (let i = 0; i <= 24; i++) {
+        const a = (i / 24) * Math.PI * 2;
+        const p = proj3D(xPos, Math.cos(a) * radius, Math.sin(a) * radius);
+        if (i === 0) ctx3d.moveTo(p.x, p.y);
+        else ctx3d.lineTo(p.x, p.y);
+      }
+      ctx3d.stroke();
+      ctx3d.globalAlpha = 1.0;
+    }
+
+    function drawHullBand(x1, r1, x2, r2, fillStyle, strokeStyle, alpha = 1.0) {
+      ctx3d.globalAlpha = alpha;
+      for (let i = 0; i < 16; i++) {
+        const a1 = (i / 16) * Math.PI * 2;
+        const a2 = ((i + 1) / 16) * Math.PI * 2;
+        const p1 = proj3D(x1, Math.cos(a1) * r1, Math.sin(a1) * r1);
+        const p2 = proj3D(x2, Math.cos(a1) * r2, Math.sin(a1) * r2);
+        const p3 = proj3D(x2, Math.cos(a2) * r2, Math.sin(a2) * r2);
+        const p4 = proj3D(x1, Math.cos(a2) * r1, Math.sin(a2) * r1);
+        ctx3d.fillStyle = fillStyle;
+        ctx3d.strokeStyle = strokeStyle;
+        ctx3d.lineWidth = 0.6;
+        ctx3d.beginPath();
+        ctx3d.moveTo(p1.x, p1.y); ctx3d.lineTo(p2.x, p2.y);
+        ctx3d.lineTo(p3.x, p3.y); ctx3d.lineTo(p4.x, p4.y);
+        ctx3d.closePath();
+        ctx3d.fill();
+        ctx3d.stroke();
+      }
+      ctx3d.globalAlpha = 1.0;
+    }
+
+    function render3DAUV() {
+      if (autoSpin && !dragging) rotY += 0.0055;
+      propAngle += 0.22;
+
+      ctx3d.fillStyle = "#040914";
+      ctx3d.fillRect(0, 0, c3d.width, c3d.height);
+
+      const R = 48; // Hull radius in 3D units
+
+      // 1. Nose Cone (Matte Black Ogive: x = -380 to -300)
+      drawHullBand(-380, 6, -340, 32, "#1e293b", "#334155", 0.95);
+      drawHullBand(-340, 32, -300, R, "#1e293b", "#475569", 0.95);
+
+      // 2. Silver Bow Wet-Bay with Bow Tunnel Thruster Cutout (x = -300 to -200)
+      drawHullBand(-300, R, -200, R, "#64748b", "#94a3b8", 0.88);
+      drawCylinderRing(-250, R * 0.55, "#0f172a", 1.0, 5); // Bow tunnel opening
+
+      // 3. Forward Clear Acrylic Tube (x = -200 to -25)
+      drawHullBand(-200, R, -25, R, "rgba(148, 163, 184, 0.12)", "rgba(226, 232, 240, 0.28)", 1.0);
+      drawCylinderRing(-200, R, "#0f172a", 1.0, 4); // Black O-ring seal
+      drawCylinderRing(-25, R, "#0f172a", 1.0, 4);
+
+      // 4. Mid-Hull Metallic Joiner Bulkhead Collar (x = -25 to +35)
+      drawHullBand(-25, R, 35, R, "#475569", "#94a3b8", 0.95);
+
+      // 5. Aft Clear Acrylic Tube (x = +35 to +210)
+      drawHullBand(35, R, 210, R, "rgba(148, 163, 184, 0.12)", "rgba(226, 232, 240, 0.28)", 1.0);
+      drawCylinderRing(35, R, "#0f172a", 1.0, 4);
+      drawCylinderRing(210, R, "#0f172a", 1.0, 4);
+
+      // External Stainless Tie Rods along the Acrylic Tubes (matching CAD image!)
+      for (const ang of [0.4, 1.97, 3.54, 5.11]) {
+        const pStart = proj3D(-200, Math.cos(ang) * (R + 3), Math.sin(ang) * (R + 3));
+        const pEnd   = proj3D(210,  Math.cos(ang) * (R + 3), Math.sin(ang) * (R + 3));
+        ctx3d.strokeStyle = "#cbd5e1";
+        ctx3d.lineWidth = 2.2;
+        ctx3d.beginPath(); ctx3d.moveTo(pStart.x, pStart.y); ctx3d.lineTo(pEnd.x, pEnd.y); ctx3d.stroke();
+      }
+
+      // 6. Predicted Internal Avionics & Sensors inside the Clear Acrylic Bays!
+      if (showInternals) {
+        const internals = [
+          { x: -335, y: 0,  z: 0,  col: "#22d3ee", name: "Ping360 360° Sonar (Nose)" },
+          { x: -140, y: -8, z: 0,  col: "#10b981", name: "Raspberry Pi 5 (AI + SLAM)" },
+          { x: -80,  y: -8, z: 0,  col: "#38bdf8", name: "Pixhawk 6C (ArduSub)" },
+          { x: -110, y: 34, z: 0,  col: "#fbbf24", name: "Water Linked DVL-A50 (Keel)" },
+          { x: 125,  y: 0,  z: 0,  col: "#a855f7", name: "4S Li-Ion Battery + ESC Tray" }
+        ];
+        // Draw internal electronics trays
+        drawHullBand(95, R * 0.72, 195, R * 0.72, "#1e293b", "#475569", 0.85);
+        drawHullBand(-175, R * 0.62, -50, R * 0.62, "#0f766e", "#2dd4bf", 0.65);
+
+        internals.forEach((m, idx) => {
+          const p = proj3D(m.x, m.y, m.z);
+          ctx3d.fillStyle = m.col;
+          ctx3d.beginPath(); ctx3d.arc(p.x, p.y, 5.5, 0, Math.PI * 2); ctx3d.fill();
+
+          const labelY = idx % 2 === 0 ? p.y - 58 : p.y + 62;
+          ctx3d.strokeStyle = m.col;
+          ctx3d.lineWidth = 1.2;
+          ctx3d.beginPath(); ctx3d.moveTo(p.x, p.y); ctx3d.lineTo(p.x, labelY); ctx3d.stroke();
+
+          ctx3d.fillStyle = "#0f172a";
+          ctx3d.fillRect(p.x - 78, labelY - 10, 156, 20);
+          ctx3d.strokeRect(p.x - 78, labelY - 10, 156, 20);
+          ctx3d.fillStyle = m.col;
+          ctx3d.font = "bold 10px ui-monospace, monospace";
+          ctx3d.textAlign = "center";
+          ctx3d.fillText(m.name, p.x, labelY + 3);
+        });
+      }
+
+      // 7. Silver Stern Actuator Section (x = +210 to +315)
+      drawHullBand(210, R, 315, R, "#64748b", "#94a3b8", 0.92);
+
+      // 8. 4 Vibrant Green Cruciform (`+`) Control Fins (`MAIN 4-7`)
+      const finAngles = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2];
+      finAngles.forEach(a => {
+        const rIn = R, rOut = R + 42;
+        const p1 = proj3D(240, Math.cos(a) * rIn,  Math.sin(a) * rIn);
+        const p2 = proj3D(248, Math.cos(a) * rOut, Math.sin(a) * rOut);
+        const p3 = proj3D(292, Math.cos(a) * rOut, Math.sin(a) * rOut);
+        const p4 = proj3D(296, Math.cos(a) * rIn,  Math.sin(a) * rIn);
+        ctx3d.fillStyle = "#22c55e";
+        ctx3d.strokeStyle = "#15803d";
+        ctx3d.lineWidth = 1.5;
+        ctx3d.beginPath();
+        ctx3d.moveTo(p1.x, p1.y); ctx3d.lineTo(p2.x, p2.y);
+        ctx3d.lineTo(p3.x, p3.y); ctx3d.lineTo(p4.x, p4.y);
+        ctx3d.closePath();
+        ctx3d.fill();
+        ctx3d.stroke();
+      });
+
+      // 9. Tapered Silver Tail Cone & Shrouded Stern Thruster (`MAIN 8`)
+      drawHullBand(315, R, 355, 22, "#94a3b8", "#cbd5e1", 0.95);
+      drawHullBand(355, 34, 382, 34, "#cbd5e1", "#f8fafc", 0.92); // Kort nozzle shroud
+      drawHullBand(365, 16, 396, 2, "#e2e8f0", "#94a3b8", 0.98);  // Conical prop hub
+    }
+
+    // =========================================================================
+    // PART B: LIVE AUTONOMY SIMULATOR & PYTHON CODE COMPILER
+    // =========================================================================
+    const OBSTACLES = [
+      { n: 8.0,  e: -1.1, r: 0.22, kind: "gate_post", label: "Gate Left" },
+      { n: 8.0,  e:  1.1, r: 0.22, kind: "gate_post", label: "Gate Right" },
+      { n: 14.0, e:  3.2, r: 0.32, kind: "buoy",      label: "Red Buoy" }
+    ];
+    const logOdds = new Float32Array(100 * 50);
+
+    const sim = {
+      build: 0, cmd: "", missionType: "lawnmower_map", depth: 1.5, wps: [], wpIdx: 0,
+      n: -12, e: -6, d: 1.5, u: 0.85, hdg: 0, estN: -12, estE: -6, driftN: -12, driftE: -6,
+      sTrail: [], dTrail: [], beams: [], sonarAng: 0, sec: [20,20,20,20,20,20,20,20],
+      steps: 0, loss: 0.042, avoiding: false
+    };
+
+    function compileNL(promptText) {
+      sim.build++;
+      sim.cmd = promptText;
+      const t = promptText.toLowerCase();
+      const dm = t.match(/(\d+(?:\.\d+)?)\s*m\b/);
+      sim.depth = dm ? Math.max(0.5, Math.min(2.4, parseFloat(dm[1]))) : 1.5;
+
+      if (t.includes("gate") || t.includes("pass")) {
+        sim.missionType = "gate_passage";
+        sim.wps = [
+          { n: 3.0, e: 0.0, d: sim.depth, speed: 0.78, label: "gate_align" },
+          { n: 8.0, e: 0.0, d: sim.depth, speed: 0.80, label: "gate_center" },
+          { n: 14.5, e: 0.0, d: sim.depth, speed: 0.85, label: "gate_exit" }
+        ];
+      } else if (t.includes("wall") || t.includes("perimeter")) {
+        sim.missionType = "perimeter_inspection";
+        sim.wps = [
+          { n: 18, e: -8, d: sim.depth, speed: 0.85, label: "nw_wall" },
+          { n: 18, e:  8, d: sim.depth, speed: 0.85, label: "ne_wall" },
+          { n: -18, e: 8, d: sim.depth, speed: 0.85, label: "se_wall" },
+          { n: -18, e:-8, d: sim.depth, speed: 0.85, label: "sw_wall" }
+        ];
+      } else if (t.includes("buoy") || t.includes("orbit")) {
+        sim.missionType = "buoy_orbit";
+        sim.wps = Array.from({ length: 8 }, (_, k) => ({
+          n: +(14 + 4 * Math.cos((k * Math.PI) / 4)).toFixed(1),
+          e: +(3.2 + 4 * Math.sin((k * Math.PI) / 4)).toFixed(1),
+          d: sim.depth, speed: 0.80, label: `orbit_${k + 1}`
+        }));
+      } else {
+        sim.missionType = "lawnmower_map";
+        sim.wps = [
+          { n: -15, e: -7.5, d: sim.depth, speed: 0.90, label: "lane_1_s" },
+          { n:  17, e: -7.5, d: sim.depth, speed: 0.90, label: "lane_1_e" },
+          { n:  17, e: -2.5, d: sim.depth, speed: 0.90, label: "lane_2_s" },
+          { n: -15, e: -2.5, d: sim.depth, speed: 0.90, label: "lane_2_e" },
+          { n: -15, e:  2.5, d: sim.depth, speed: 0.90, label: "lane_3_s" },
+          { n:  17, e:  2.5, d: sim.depth, speed: 0.90, label: "lane_3_e" },
+          { n:  17, e:  7.5, d: sim.depth, speed: 0.90, label: "lane_4_s" },
+          { n: -15, e:  7.5, d: sim.depth, speed: 0.90, label: "lane_4_e" }
+        ];
+      }
+      sim.wpIdx = 0;
+      document.getElementById("missionTag").textContent = sim.missionType.toUpperCase();
+      document.getElementById("compileStatusBadge").textContent = `● Build #${sim.build} Active — "${promptText}"`;
+
+      const toast = document.getElementById("compileToast");
+      toast.textContent = `✓ Build #${sim.build} Compiled: ${sim.missionType.toUpperCase()} (${sim.wps.length} Waypoints)`;
+      toast.classList.remove("hidden");
+      setTimeout(() => toast.classList.add("hidden"), 2200);
+
+      renderCode();
+    }
+
+    function renderCode() {
+      const lines = [
+        `# AUTO-GENERATED BY AUV1 NL PLANNER (Build #${sim.build})`,
+        `# Prompt: "${sim.cmd}"`,
+        `from auv1.guidance import Waypoint, los_heading_deg`,
+        `from auv1.sensor_fusion import DvlSonarFusionSLAM`,
+        `from auv1.llm_distill import DistilledStudentPolicy`,
+        `MISSION_TYPE = "${sim.missionType}"`,
+        `WAYPOINTS = [`
+      ];
+      const wpLines = sim.wps.map(
+        (w, i) =>
+          `<div id="cwp_${i}" class="code-line ${i === sim.wpIdx ? "active-line" : "changed-line"}">` +
+          `    Waypoint(north_m=${w.n.toFixed(1)}, east_m=${w.e.toFixed(1)}, depth_m=${w.d.toFixed(1)}, label="${w.label}"),</div>`
+      );
+      const tail = [
+        `]`,
+        `slam = fusion.update(att, dvl_pkt, ping360_scan)`,
+        `hdg_sp, xte, dist = los_heading_deg(slam, WAYPOINTS[wp_idx])`,
+        `<div id="c_avoid" class="code-line">if slam.forward_clearance_m &lt; 4.5: d_hdg = student_mlp.avoid(slam)</div>`,
+        `<div id="c_nom" class="code-line active-line">else: d_hdg = student_mlp.track_los(xte)</div>`,
+        `actuators = flight_ctl.update(depth_sp=${sim.depth.toFixed(1)}, hdg_sp=hdg_sp + d_hdg)`
+      ];
+      document.getElementById("codeContainer").innerHTML =
+        lines.map(l => `<div class="code-line">${l}</div>`).join("") +
+        wpLines.join("") +
+        tail.map(l => (l.startsWith("<div") ? l : `<div class="code-line">${l}</div>`)).join("");
+    }
+
+    function stepSim(dt) {
+      const hRad = (sim.hdg * Math.PI) / 180;
+      for (let i = 0; i < 6; i++) {
+        sim.sonarAng = (sim.sonarAng + 15) % 360;
+        const rel = ((sim.sonarAng + 180) % 360) - 180;
+        const wAng = hRad + (rel * Math.PI) / 180;
+        const cn = Math.cos(wAng), ce = Math.sin(wAng);
+        let best = 20.0, kind = null;
+        if (Math.abs(cn) > 1e-4) {
+          const t1 = (25 - sim.n) / cn, t2 = (-25 - sim.n) / cn;
+          if (t1 > 0.2 && t1 < best) { best = t1; kind = "wall"; }
+          if (t2 > 0.2 && t2 < best) { best = t2; kind = "wall"; }
+        }
+        if (Math.abs(ce) > 1e-4) {
+          const t1 = (12.5 - sim.e) / ce, t2 = (-12.5 - sim.e) / ce;
+          if (t1 > 0.2 && t1 < best) { best = t1; kind = "wall"; }
+          if (t2 > 0.2 && t2 < best) { best = t2; kind = "wall"; }
+        }
+        for (const o of OBSTACLES) {
+          const dn = o.n - sim.n, de = o.e - sim.e, p = dn * cn + de * ce;
+          if (p > 0.2 && p < best && dn * dn + de * de - p * p <= (o.r + 0.15) ** 2) { best = p - o.r; kind = o.kind; }
+        }
+        sim.beams.push({ wAng, r: best, kind });
+        if (sim.beams.length > 36) sim.beams.shift();
+        const sIdx = Math.floor((((rel + 360 + 22.5) % 360) / 45)) % 8;
+        sim.sec[sIdx] = 0.65 * sim.sec[sIdx] + 0.35 * best;
+
+        const steps = Math.floor(best / 0.5);
+        for (let s = 1; s < steps; s++) {
+          const r = Math.min(99, Math.max(0, Math.floor((sim.estN + cn * s * 0.5 + 25) / 0.5)));
+          const c = Math.min(49, Math.max(0, Math.floor((sim.estE + ce * s * 0.5 + 12.5) / 0.5)));
+          logOdds[r * 50 + c] = Math.max(-3, logOdds[r * 50 + c] - 0.2);
+        }
+        if (kind) {
+          const hn = sim.estN + cn * best, he = sim.estE + ce * best;
+          const r = Math.min(99, Math.max(0, Math.floor((hn + 25) / 0.5)));
+          const c = Math.min(49, Math.max(0, Math.floor((he + 12.5) / 0.5)));
+          logOdds[r * 50 + c] = Math.min(4, logOdds[r * 50 + c] + 0.85);
+          if (document.getElementById("chkSlam").checked) {
+            if (Math.abs(Math.abs(hn) - 25) < 1.5) sim.estN += 0.15 * ((hn > 0 ? 25 : -25) - hn);
+            if (Math.abs(Math.abs(he) - 12.5) < 1.5) sim.estE += 0.15 * ((he > 0 ? 12.5 : -12.5) - he);
+          }
+        }
+      }
+
+      const wp = sim.wps[sim.wpIdx] || { n: 0, e: 0, label: "wp" };
+      const dn = wp.n - sim.estN, de = wp.e - sim.estE, dist = Math.hypot(dn, de);
+      if (dist < 1.8) {
+        sim.wpIdx = (sim.wpIdx + 1) % sim.wps.length;
+        sim.wps.forEach((_, idx) => {
+          const el = document.getElementById(`cwp_${idx}`);
+          if (el) el.className = idx === sim.wpIdx ? "code-line active-line" : "code-line";
+        });
+      }
+
+      const losDeg = ((Math.atan2(de, dn) * 180) / Math.PI + 360) % 360;
+      sim.avoiding = sim.sec[0] < 4.5;
+      const dHdg = sim.avoiding ? (sim.sec[1] >= sim.sec[7] ? 32 : -32) : 0;
+      sim.steps++;
+      sim.loss = Math.max(0.0015, sim.loss * 0.994);
+
+      const cmdHdg = (losDeg + dHdg + 360) % 360;
+      const err = ((cmdHdg - sim.hdg + 540) % 360) - 180;
+      sim.hdg = (sim.hdg + Math.max(-45, Math.min(45, err * 1.5)) * dt + 360) % 360;
+
+      const vn = sim.u * Math.cos(hRad), ve = sim.u * Math.sin(hRad) + 0.04;
+      sim.n = Math.max(-24, Math.min(24, sim.n + vn * dt));
+      sim.e = Math.max(-11.5, Math.min(11.5, sim.e + ve * dt));
+      if (document.getElementById("chkDvl").checked) { sim.estN += vn * dt; sim.estE += ve * dt; }
+      else { sim.estN += sim.u * Math.cos(hRad) * dt; sim.estE += sim.u * Math.sin(hRad) * dt; }
+      sim.driftN += 0.88 * Math.cos(hRad + 0.04) * dt;
+      sim.driftE += 0.88 * Math.sin(hRad + 0.04) * dt;
+
+      if (Math.random() < 0.45) {
+        sim.sTrail.push({ n: sim.estN, e: sim.estE });
+        sim.driftTrail = sim.dTrail;
+        sim.dTrail.push({ n: sim.driftN, e: sim.driftE });
+        if (sim.sTrail.length > 200) { sim.sTrail.shift(); sim.dTrail.shift(); }
+      }
+
+      document.getElementById("hudPose").textContent = `Pose: N ${sim.estN.toFixed(1)}m, E ${sim.estE.toFixed(1)}m`;
+      document.getElementById("hudTarget").textContent = `Active: WP ${sim.wpIdx + 1}/${sim.wps.length} (${wp.label})`;
+      document.getElementById("activeExecBadge").textContent = `Executing: ${wp.label}`;
+      document.getElementById("aiStats").textContent = `Steps: ${sim.steps} | MSE: ${sim.loss.toFixed(4)}`;
+      document.getElementById("execTraceText").textContent =
+        `ctl.update(depth_sp=${sim.depth.toFixed(1)}m, hdg_sp=${Math.round(cmdHdg)}°, u_sp=${sim.u.toFixed(2)}m/s)`;
+    }
+
+    function renderTank() {
+      const canvas = document.getElementById("tankCanvas"), ctx = canvas.getContext("2d");
+      const w = canvas.width, h = canvas.height, pad = 24;
+      const p2c = (n, e) => ({ x: pad + ((n + 25) / 50) * (w - 2 * pad), y: pad + ((e + 12.5) / 25) * (h - 2 * pad) });
+      ctx.fillStyle = "#030914"; ctx.fillRect(0, 0, w, h);
+
+      const cw = (w - 2 * pad) / 100, ch = (h - 2 * pad) / 50;
+      let mapped = 0;
+      for (let r = 0; r < 100; r++) {
+        for (let c = 0; c < 50; c++) {
+          const lo = logOdds[r * 50 + c];
+          if (Math.abs(lo) > 0.15) mapped++;
+          if (lo > 0.25) {
+            ctx.fillStyle = `rgba(34,211,238,${Math.min(0.85, lo / 3.5)})`;
+            ctx.fillRect(pad + r * cw, pad + c * ch, cw + 0.6, ch + 0.6);
+          } else if (lo < -0.25) {
+            ctx.fillStyle = "rgba(16,185,129,0.11)";
+            ctx.fillRect(pad + r * cw, pad + c * ch, cw, ch);
+          }
+        }
+      }
+      document.getElementById("hudVision").textContent = `Mapped: ${((mapped / 5000) * 100).toFixed(1)}%`;
+      ctx.strokeStyle = "#38bdf8"; ctx.lineWidth = 2; ctx.strokeRect(pad, pad, w - 2 * pad, h - 2 * pad);
+
+      // Waypoints
+      ctx.strokeStyle = "rgba(148,163,184,0.45)"; ctx.setLineDash([5, 5]); ctx.beginPath();
+      sim.wps.forEach((wp, i) => { const p = p2c(wp.n, wp.e); if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); });
+      ctx.stroke(); ctx.setLineDash([]);
+      sim.wps.forEach((wp, i) => {
+        const p = p2c(wp.n, wp.e);
+        ctx.fillStyle = i === sim.wpIdx ? "#22d3ee" : "#64748b";
+        ctx.beginPath(); ctx.arc(p.x, p.y, i === sim.wpIdx ? 5.5 : 3.5, 0, Math.PI * 2); ctx.fill();
+      });
+
+      const vp = p2c(sim.n, sim.e);
+      for (const b of sim.beams) {
+        const ep = p2c(sim.n + Math.cos(b.wAng) * b.r, sim.e + Math.sin(b.wAng) * b.r);
+        ctx.strokeStyle = "rgba(16,185,129,0.18)"; ctx.beginPath(); ctx.moveTo(vp.x, vp.y); ctx.lineTo(ep.x, ep.y); ctx.stroke();
+      }
+
+      if (document.getElementById("chkShowDrift").checked && sim.dTrail.length > 1) {
+        ctx.strokeStyle = "rgba(244,63,94,0.75)"; ctx.setLineDash([4, 4]); ctx.beginPath();
+        sim.dTrail.forEach((pt, i) => { const p = p2c(pt.n, pt.e); if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); });
+        ctx.stroke(); ctx.setLineDash([]);
+      }
+      if (sim.sTrail.length > 1) {
+        ctx.strokeStyle = "#22d3ee"; ctx.lineWidth = 2; ctx.beginPath();
+        sim.sTrail.forEach((pt, i) => { const p = p2c(pt.n, pt.e); if (i === 0) ctx.moveTo(p.x, p.y); else ctx.lineTo(p.x, p.y); });
+        ctx.stroke();
+      }
+
+      for (const o of OBSTACLES) {
+        const p = p2c(o.n, o.e);
+        ctx.fillStyle = o.kind === "gate_post" ? "#fb923c" : "#f43f5e";
+        ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI * 2); ctx.fill();
+      }
+
+      ctx.save(); ctx.translate(vp.x, vp.y); ctx.rotate((sim.hdg * Math.PI) / 180);
+      ctx.fillStyle = "#fbbf24"; ctx.beginPath(); ctx.ellipse(0, 0, 11, 3.8, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+
+    let spd = 1;
+    document.getElementById("btnCompile").onclick = () => compileNL(document.getElementById("nlInput").value);
+    document.querySelectorAll(".preset-btn").forEach(b => (b.onclick = () => {
+      document.getElementById("nlInput").value = b.dataset.cmd;
+      compileNL(b.dataset.cmd);
+    }));
+    document.getElementById("btnSpeed").onclick = e => { spd = spd === 1 ? 2 : spd === 2 ? 4 : 1; e.target.textContent = `Speed: ${spd}×`; };
+    document.getElementById("btnObstacle").onclick = () => {
+      const h = (sim.hdg * Math.PI) / 180;
+      OBSTACLES.push({ n: sim.n + 3.5 * Math.cos(h), e: sim.e + 3.5 * Math.sin(h), r: 0.4, kind: "buoy", label: "OBS" });
+    };
+    document.getElementById("btnReset").onclick = () => {
+      sim.n = -12; sim.e = -6; sim.estN = -12; sim.estE = -6; sim.driftN = -12; sim.driftE = -6;
+      sim.sTrail = []; sim.dTrail = []; logOdds.fill(0); OBSTACLES.splice(3);
+      compileNL(document.getElementById("nlInput").value);
+    };
+
+    compileNL(document.getElementById("nlInput").value);
+    function animate() {
+      render3DAUV();
+      for (let i = 0; i < spd; i++) stepSim(0.05);
+      renderTank();
+      requestAnimationFrame(animate);
+    }
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>
